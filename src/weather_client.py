@@ -1,37 +1,29 @@
 import os
-from typing import Dict, Optional
-
 import requests
-
+from typing import Optional, Dict
 
 class WeatherAPIError(Exception):
-    """Raised when the weather API returns an error or bad response."""
-
+    """Custom exception for weather API errors."""
+    pass
 
 class WeatherClient:
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        base_url: str = "https://api.openweathermap.org/data/2.5",
-    ):
-        """
-        Simple client for OpenWeatherMap API.
+    def __init__(self, api_key: Optional[str] = None,
+                 base_url: str = "https://api.openweathermap.org/data/2.5"):
 
-        api_key: API key string; falls back to OPENWEATHER_API_KEY env var.
-        base_url: Base API URL; defaults to OpenWeatherMap v2.5 base.
-        """
-        if api_key is None:
-            api_key = os.getenv("OPENWEATHER_API_KEY")
-        if not api_key:
+        key = api_key or os.getenv("OPENWEATHER_API_KEY")
+
+        if not key:
             raise ValueError(
-                "API key is not provided. Set OPENWEATHER_API_KEY in environment variables."
+                "API key not provided. Set OPENWEATHER_API_KEY in your .env file."
             )
 
-        self.api_key = api_key
+        self.api_key = key
         self.base_url = base_url.rstrip("/")
 
     def _get(self, endpoint: str, params: Dict) -> Dict:
+        """Internal helper for making GET requests with error handling."""
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
+
         params = dict(params)
         params["appid"] = self.api_key
 
@@ -42,8 +34,8 @@ class WeatherClient:
 
         if resp.status_code != 200:
             try:
-                err_json = resp.json()
-                msg = err_json.get("message") or resp.text
+                error_json = resp.json()
+                msg = error_json.get("message", resp.text)
             except ValueError:
                 msg = resp.text
             raise WeatherAPIError(f"API error ({resp.status_code}): {msg}")
@@ -51,28 +43,18 @@ class WeatherClient:
         try:
             return resp.json()
         except ValueError:
-            raise WeatherAPIError("Invalid JSON response")
+            raise WeatherAPIError("Invalid JSON from API")
 
-    def current_weather(
-        self, city: str, country: Optional[str] = None, units: str = "metric"
-    ) -> Dict:
-        if not city:
-            raise ValueError("City name is required.")
+    def current_weather(self, city: str, country: Optional[str] = None,
+                        units: str = "metric") -> Dict:
 
         q = city if not country else f"{city},{country}"
         params = {"q": q, "units": units}
 
         return self._get("weather", params)
 
-    def forecast(
-        self,
-        city: str,
-        country: Optional[str] = None,
-        units: str = "metric",
-        cnt: Optional[int] = None,
-    ) -> Dict:
-        if not city:
-            raise ValueError("City name is required.")
+    def forecast(self, city: str, country: Optional[str] = None,
+                 units: str = "metric", cnt: Optional[int] = None) -> Dict:
 
         q = city if not country else f"{city},{country}"
         params = {"q": q, "units": units}
@@ -81,3 +63,19 @@ class WeatherClient:
             params["cnt"] = cnt
 
         return self._get("forecast", params)
+
+    def air_quality(self, city: str, country: Optional[str] = None) -> Dict:
+        """Fetch AQI data using coordinates from the weather endpoint."""
+        q = city if not country else f"{city},{country}"
+
+        weather_data = self._get("weather", {"q": q})
+        coord = weather_data.get("coord")
+
+        if not coord or "lat" not in coord or "lon" not in coord:
+            raise WeatherAPIError("Could not get coordinates for AQI lookup.")
+
+        lat = coord["lat"]
+        lon = coord["lon"]
+
+     
+        return self._get("air_pollution", {"lat": lat, "lon": lon})
