@@ -3,13 +3,15 @@ import requests
 from typing import Optional, Dict
 
 class WeatherAPIError(Exception):
-    """Custom exception for weather API errors."""
+    """Raised when the weather API returns an error or bad response."""
     pass
 
 class WeatherClient:
+    """Client for interacting with the OpenWeatherMap API."""
     def __init__(self, api_key: Optional[str] = None,
                  base_url: str = "https://api.openweathermap.org/data/2.5"):
-
+    
+        
         key = api_key or os.getenv("OPENWEATHER_API_KEY")
 
         if not key:

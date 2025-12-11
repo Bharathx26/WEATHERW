@@ -11,11 +11,13 @@ AQI_LABELS = {
 }
 
 def pretty_current(data: dict) -> str:
-    name = data.get("name")
-    sys_info = data.get("sys", {})
-    weather = data.get("weather", [{}])[0]
-    main = data.get("main", {})
-    wind = data.get("wind", {})
+    """Render current weather details as printable text."""
+    name = data.get("name", "")
+    sys_info = data.get("sys", {}) or {}
+    weather_list = data.get("weather", []) or []
+    weather = weather_list[0] if weather_list else {}
+    main = data.get("main", {}) or {}
+    wind = data.get("wind", {}) or {}
 
     lines = [
         f"Location: {name}, {sys_info.get('country', '')}",
@@ -29,29 +31,8 @@ def pretty_current(data: dict) -> str:
     return "\n".join(lines)
 
 
-def pretty_forecast(data: dict, limit: int = 5) -> str:
-    city = data.get("city", {}).get("name", "")
-    country = data.get("city", {}).get("country", "")
-    lines = [f"Forecast for {city}, {country}:"]
-    count = 0
-
-    for entry in data.get("list", []):
-        dt_txt = entry.get("dt_txt")
-        weather = entry.get("weather", [{}])[0]
-        main = entry.get("main", {})
-        lines.append(
-            f"- {dt_txt}: {weather.get('main')} "
-            f"({weather.get('description')}) — {main.get('temp')}°"
-        )
-        count += 1
-        if count >= limit:
-            break
-
-    return "\n".join(lines)
-
-
 def pretty_aqi(data: dict, city: str, country) -> str:
-    
+    """Render Air Quality Index details as printable text."""
     city_display = city if not country else f"{city}, {country}"
 
     items = data.get("list", [])
@@ -76,6 +57,27 @@ def pretty_aqi(data: dict, city: str, country) -> str:
         f"  SO₂:   {components.get('so2')}",
         f"  CO:    {components.get('co')}",
     ]
+    return "\n".join(lines)
+
+def pretty_forecast(data: dict, limit: int = 5) -> str:
+    """Render forecast list as printable text."""
+    city_info = data.get("city", {}) or {}
+    city = city_info.get("name", "")
+    country = city_info.get("country", "")
+    lines = [f"Forecast for {city}, {country}:"]
+    count = 0
+
+    for entry in data.get("list", []):
+        dt_txt = entry.get("dt_txt")
+        weather = entry.get("weather", [{}])[0]
+        main = entry.get("main", {})
+
+        lines.append(
+            f" - {dt_txt}: {weather.get('main')} ({weather.get('description')}) - {main.get('temp')}°"
+        )
+        count += 1
+        if count >= limit:
+            break
     return "\n".join(lines)
 
 
